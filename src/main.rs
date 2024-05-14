@@ -1,7 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::error::Error;
+use std::process::Output;
 
 use serde::{Serialize, Deserialize};
 use openssh::{Session, KnownHosts};
@@ -15,6 +15,43 @@ enum ConnectionMethod {
     Server,
 }
 
+#[derive(Debug)]
+struct RemoteSession {
+    session: Session,
+    command: String,
+    arguments: Vec<String>,
+}
+
+impl RemoteSession {
+    pub async fn new(usr: &str, addr: &str, cmd: &str, args: Vec<String>) -> Self {
+        let session = Session::connect(
+            format!("{}@{}", usr, addr),
+            KnownHosts::Strict
+        ).await
+        .expect(&format!("Failed to start ssh session for {}@{}", usr, addr));
+
+
+        RemoteSession {
+            session: session,
+            command: cmd.to_string(),
+            arguments: args
+        }
+    }
+
+    pub async fn execute_command(&self) -> Output {
+        self.session.command(&self.command)
+            .args(&self.arguments)
+            .output()
+            .await
+            .expect(&format!("Session failed to execute command"))
+    }
+
+    pub async fn read_output(&self) -> String {
+        let cmd = self.execute_command().await;
+        String::from_utf8(cmd.stdout).expect("Failed to get command output")
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct RemoteMachine {
     usr: String,
@@ -22,49 +59,31 @@ struct RemoteMachine {
     auth: Option<String>,
     method: ConnectionMethod,
     file_path: String,
+    #[serde(skip)]
+    session: Option<RemoteSession>,
 }
 
 impl RemoteMachine {
-    pub async fn init(&self) {
+    pub async fn init(&mut self) {
         match &self.method {
             ConnectionMethod::Ssh => {
-                let session = Session::connect(
-                    format!("{}@{}", self.usr, self.addr),
-                    KnownHosts::Strict
-                ).await
-                .expect(&self.append_user_data("Failed to start ssh session for "));
-
-                let ls = session.command("ls")
-                    .output()
-                    .await
-                    .expect("Failed to execute command ls");
-
-                println!(
-                    "{}",
-                    String::from_utf8(ls.stdout)
-                        .expect("Failed to get command output")
-                );
+                self.session = Some(RemoteSession::new(
+                     &self.usr,
+                     &self.addr,
+                     "cat",
+                     vec!(self.file_path.clone())
+                ).await);
             }
             ConnectionMethod::Server => {}
         }
     }
 
-    pub fn get_file(&self) -> String {
-        self.request_file();
-        self.read_file_data()
-    }
+    pub async fn read_file_data(&self) -> Option<String> {
+        if let Some(session) = &self.session {
+            return Some(session.read_output().await)
+        }
 
-    fn request_file(&self) {
-        // Send request
-    }
-
-    fn read_file_data(&self) -> String {
-        // Read received data
-        String::new()
-    }
-
-    fn append_user_data(&self, msg: &str) -> String {
-        format!("{} {}@{}", msg, self.usr, self.addr)
+        None
     }
 }
 
@@ -92,8 +111,9 @@ impl Monitor {
     pub async fn run(&mut self) {
         self.setup();
 
-        for machine in &self.config.remotes {
+        for machine in &mut self.config.remotes {
             machine.init().await;
+            println!("{}", machine.read_file_data().await.expect("Cannnot obtain machine data"));
         }
     }
 
