@@ -13,6 +13,8 @@ use axum::{
 
 use crate::monitor::Monitor;
 
+const ADDR_PORT: &str = "0.0.0.0:5000";
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -28,7 +30,7 @@ async fn main() {
         .route("/files", get(get_remotes))
         .layer(Extension(monitor_state));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(ADDR_PORT).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
