@@ -28,8 +28,6 @@ impl RemoteMachine {
                 self.session = Some(RemoteSession::new(
                      &self.usr,
                      &self.addr,
-                     "cat",
-                     vec!(self.file_path.clone())
                 ).await);
             }
             ConnectionMethod::Server => {}
@@ -38,10 +36,16 @@ impl RemoteMachine {
 
     pub async fn read_file_data(&self) -> Option<String> {
         if let Some(session) = &self.session {
-            return Some(session.read_output().await)
+            return Some(session.read_file(&self.file_path).await)
         }
 
         None
+    }
+
+    pub async fn write_file(&self, file_ctx: &str) {
+        if let Some(session) = &self.session {
+            session.write_file(&self.file_path, file_ctx);
+        }
     }
 }
 

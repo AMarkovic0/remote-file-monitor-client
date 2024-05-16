@@ -5,12 +5,10 @@ use openssh::{Session, KnownHosts};
 #[derive(Debug)]
 pub struct RemoteSession {
     session: Session,
-    command: String,
-    arguments: Vec<String>,
 }
 
 impl RemoteSession {
-    pub async fn new(usr: &str, addr: &str, cmd: &str, args: Vec<String>) -> Self {
+    pub async fn new(usr: &str, addr: &str) -> Self {
         let session = Session::connect(
             format!("{}@{}", usr, addr),
             KnownHosts::Strict
@@ -20,22 +18,27 @@ impl RemoteSession {
 
         RemoteSession {
             session: session,
-            command: cmd.to_string(),
-            arguments: args
         }
     }
 
-    async fn execute_command(&self) -> Output {
-        self.session.command(&self.command)
-            .args(&self.arguments)
+    async fn execute_command(&self, cmd: &str, args: &Vec<&str>) -> Output {
+        self.session.command(cmd)
+            .args(args)
             .output()
             .await
             .expect(&format!("Session failed to execute command"))
     }
 
-    pub async fn read_output(&self) -> String {
-        let cmd = self.execute_command().await;
+    pub async fn read_file(&self, file_path: &str) -> String {
+        let args = vec![file_path];
+
+        let cmd = self.execute_command("cat", &args).await;
         String::from_utf8(cmd.stdout).expect("Failed to get command output")
+    }
+
+    pub async fn write_file(&self, file_path: &str, file_ctx: &str) {
+        let args = vec![file_ctx, ">>", file_path];
+        let _ = self.execute_command("echo", &args).await;
     }
 }
 

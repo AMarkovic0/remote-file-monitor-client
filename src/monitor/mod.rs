@@ -47,5 +47,15 @@ impl Monitor {
             .expect("Configuration file JSON was not well-formatted");
         self.config.path = tmp_path;
     }
+
+    pub fn get_machine_by_name(&self, name: &str) -> Option<&RemoteMachine> {
+        for machine in &self.config.remotes {
+            if machine.usr == name {
+                return Some(&machine);
+            }
+        }
+
+        None
+    }
 }
 

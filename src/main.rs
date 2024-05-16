@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use axum::{
     routing::get,
+    routing::post,
     Router,
     Extension,
 };
@@ -29,6 +30,7 @@ async fn main() {
     let app = Router::new()
         .route("/users", get(get_users))
         .route("/files", get(get_remotes))
+        //.route("/file", post(post_file))
         .layer(Extension(monitor_state));
 
     let listener = tokio::net::TcpListener::bind(ADDR_PORT).await.unwrap();
@@ -57,3 +59,9 @@ async fn get_remotes(monitor_state: Extension<Arc<Monitor>>) -> String {
 
     serde_json::to_string(&files).unwrap()
 }
+
+//async fn post_file(user: &str, file_ctx: &str, monitor_state: Extension<Arc<Monitor>>) {
+//    if let Some(machine) = &monitor_state.get_machine_by_name(user) {
+//        machine.write_file(file_ctx).await;
+//    }
+//}
