@@ -12,7 +12,7 @@ enum ConnectionMethod {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RemoteMachine {
-    usr: String,
+    pub usr: String,
     addr: String,
     auth: Option<String>,
     method: ConnectionMethod,

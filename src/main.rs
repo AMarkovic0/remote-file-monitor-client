@@ -24,11 +24,22 @@ async fn main() {
     let monitor_state = Arc::new(monitor);
 
     let app = Router::new()
-        .route("/users", get(get_remotes))
+        .route("/users", get(get_users))
+        .route("/files", get(get_remotes))
         .layer(Extension(monitor_state));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn get_users(monitor_state: Extension<Arc<Monitor>>) -> String {
+    let mut users = Vec::new();
+
+    for machine in &monitor_state.config.remotes {
+       users.push(&machine.usr);
+    }
+
+    serde_json::to_string(&users).unwrap()
 }
 
 async fn get_remotes(monitor_state: Extension<Arc<Monitor>>) -> String {
