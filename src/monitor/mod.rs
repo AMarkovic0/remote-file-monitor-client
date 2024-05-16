@@ -6,14 +6,14 @@ use serde::{Serialize, Deserialize};
 use crate::remote_machine::RemoteMachine;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct MonitorConfig {
+pub struct MonitorConfig {
     #[serde(skip)]
     pub path: String,
     pub remotes: Vec<RemoteMachine>,
 }
 
 pub struct Monitor {
-    config: MonitorConfig,
+    pub config: MonitorConfig,
 }
 
 impl Monitor {
@@ -26,17 +26,12 @@ impl Monitor {
         }
     }
 
-    pub async fn run(&mut self) {
-        self.setup();
+    pub async fn setup(&mut self) {
+        self.read_config();
 
         for machine in &mut self.config.remotes {
             machine.init().await;
-            println!("{}", machine.read_file_data().await.expect("Cannnot obtain machine data"));
         }
-    }
-
-    fn setup(&mut self) {
-        self.read_config();
     }
 
     fn read_config(&mut self) {
