@@ -4,6 +4,7 @@ mod monitor;
 
 use std::env;
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use axum::{
     routing::get,
@@ -45,15 +46,14 @@ async fn get_users(monitor_state: Extension<Arc<Monitor>>) -> String {
 }
 
 async fn get_remotes(monitor_state: Extension<Arc<Monitor>>) -> String {
-    let mut resp = String::new();
+    let mut files = HashMap::new();
 
     for machine in &monitor_state.config.remotes {
-        resp = format!(
-            "{}{}",
-            resp,
+        files.insert(
+            &machine.usr,
             machine.read_file_data().await.expect("Cannnot obtain machine data")
         );
     }
 
-    resp
+    serde_json::to_string(&files).unwrap()
 }
