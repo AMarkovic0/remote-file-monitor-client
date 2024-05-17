@@ -1,59 +1,22 @@
 mod remote_session;
 mod remote_machine;
 mod monitor;
+mod handlers;
 
 use std::{
     env,
     sync::Arc
 };
-use std::collections::HashMap;
 
 use axum::{
-    extract::Json,
     routing::{get, post},
     Router,
     Extension,
 };
-use serde::Deserialize;
 
 use crate::monitor::Monitor;
 
 const ADDR_PORT: &str = "0.0.0.0:5000";
-
-async fn get_users(monitor_state: Extension<Arc<Monitor>>) -> String {
-    let mut users = Vec::new();
-
-    for machine in &monitor_state.config.remotes {
-       users.push(&machine.usr);
-    }
-
-    serde_json::to_string(&users).unwrap()
-}
-
-async fn get_remotes(monitor_state: Extension<Arc<Monitor>>) -> String {
-    let mut files = HashMap::new();
-
-    for machine in &monitor_state.config.remotes {
-        files.insert(
-            &machine.usr,
-            machine.read_file_data().await.expect("Cannnot obtain machine data")
-        );
-    }
-
-    serde_json::to_string(&files).unwrap()
-}
-
-#[derive(Deserialize)]
-struct PostFile {
-    user: String,
-    file_ctx: String
-}
-
-async fn post_file(monitor_state: Extension<Arc<Monitor>>, Json(query): Json<PostFile>) {
-    if let Some(machine) = &monitor_state.get_machine_by_name(&query.user) {
-        machine.write_file(&query.file_ctx).await;
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -66,9 +29,9 @@ async fn main() {
     let monitor_state = Arc::new(monitor);
 
     let app = Router::new()
-        .route("/api/v1/users", get(get_users))
-        .route("/api/v1/file", get(get_remotes))
-        .route("/api/v1/file", post(post_file))
+        .route("/api/v1/users", get(handlers::get_users))
+        .route("/api/v1/file", get(handlers::get_remotes))
+        .route("/api/v1/file", post(handlers::post_file))
         .layer(Extension(monitor_state));
 
     let listener = tokio::net::TcpListener::bind(ADDR_PORT).await.unwrap();
