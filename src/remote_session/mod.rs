@@ -38,7 +38,7 @@ impl RemoteSession {
 
     pub async fn write_file(&self, file_path: &str, file_ctx: &str) {
         let args = vec![file_ctx, ">>", file_path];
-        let cmd = self.execute_command("echo", &args).await;
+        let _cmd = self.execute_command("echo", &args).await;
     }
 }
 

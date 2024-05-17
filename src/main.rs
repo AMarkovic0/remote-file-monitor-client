@@ -66,9 +66,9 @@ async fn main() {
     let monitor_state = Arc::new(monitor);
 
     let app = Router::new()
-        .route("/users", get(get_users))
-        .route("/files", get(get_remotes))
-        .route("/file", post(post_file))
+        .route("/api/v1/users", get(get_users))
+        .route("/api/v1/file", get(get_remotes))
+        .route("/api/v1/file", post(post_file))
         .layer(Extension(monitor_state));
 
     let listener = tokio::net::TcpListener::bind(ADDR_PORT).await.unwrap();
