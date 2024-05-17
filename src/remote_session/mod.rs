@@ -23,7 +23,7 @@ impl RemoteSession {
 
     async fn execute_command(&self, cmd: &str, args: &Vec<&str>) -> Output {
         self.session.command(cmd)
-            .args(args)
+            .raw_args(args)
             .output()
             .await
             .expect(&format!("Session failed to execute command"))
@@ -38,7 +38,7 @@ impl RemoteSession {
 
     pub async fn write_file(&self, file_path: &str, file_ctx: &str) {
         let args = vec![file_ctx, ">>", file_path];
-        let _ = self.execute_command("echo", &args).await;
+        let cmd = self.execute_command("echo", &args).await;
     }
 }
 

@@ -44,7 +44,7 @@ impl RemoteMachine {
 
     pub async fn write_file(&self, file_ctx: &str) {
         if let Some(session) = &self.session {
-            session.write_file(&self.file_path, file_ctx);
+            session.write_file(&self.file_path, file_ctx).await;
         }
     }
 }
