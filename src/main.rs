@@ -37,6 +37,7 @@ async fn main() {
         .route("/api/v1/data/files", get(handlers::get_remote_files))
         .route("/api/v1/data/files/:user_name", get(handlers::get_remote_file_by_user))
         .route("/api/v1/data/file", post(handlers::post_file))
+        .route("/api/v1/user/login", post(handlers::login))
         .layer(
             CorsLayer::new()
                 .allow_origin(
