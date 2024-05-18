@@ -33,9 +33,10 @@ async fn main() {
     let monitor_state = Arc::new(monitor);
 
     let app = Router::new()
-        .route("/api/v1/users", get(handlers::get_users))
-        .route("/api/v1/file", get(handlers::get_remote_files))
-        .route("/api/v1/file", post(handlers::post_file))
+        .route("/api/v1/data/users", get(handlers::get_users))
+        .route("/api/v1/data/files", get(handlers::get_remote_files))
+        .route("/api/v1/data/files/:user_name", get(handlers::get_remote_file_by_user))
+        .route("/api/v1/data/file", post(handlers::post_file))
         .layer(
             CorsLayer::new()
                 .allow_origin(

@@ -5,7 +5,7 @@ use serde::Deserialize;
 use axum::{
     http::StatusCode,
     Extension,
-    extract::Json,
+    extract::{Json, Path},
     //debug_handler,
 };
 
@@ -38,6 +38,21 @@ pub async fn get_remote_files(monitor_state: Extension<Arc<Monitor>>) -> (Status
 
     (StatusCode::INTERNAL_SERVER_ERROR, String::new())
 }
+
+//#[debug_handler]
+pub async fn get_remote_file_by_user(
+    monitor_state: Extension<Arc<Monitor>>,
+    Path(user_name): Path<String>
+) -> (StatusCode, String) {
+    if let Some(machine) = &monitor_state.get_machine_by_name(&user_name) {
+        if let Some(file_data) = machine.read_file_data().await {
+            return (StatusCode::OK, file_data);
+        }
+    }
+
+    (StatusCode::NOT_FOUND, String::new())
+}
+
 
 #[derive(Deserialize)]
 //#[debug_handler]
