@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 use axum::{
@@ -15,30 +16,66 @@ use axum_extra::{
     },
     TypedHeader,
 };
-
+use jsonwebtoken::{DecodingKey, Validation};
 
 use crate::monitor::Monitor;
 use crate::remote_session::BoxResult;
 
-const TEST_TOKEN: &'static str = "thisismydefaulttesttoken123!!";
+const SECRET_SIGNING_KEY: &'static str = "thisismydefaulttestkey123!!";
+const AUTH_REQUIRED_VAR: &'static str = "AUTH_REQUIRED";
 
-fn verify_auth(token: &str) -> BoxResult<()> {
-    if token == TEST_TOKEN {
-        return Ok(())
+#[derive(Serialize, Deserialize)]
+pub struct JwtPayload {
+    pub sub: String,
+    pub exp: usize,
+}
+
+impl JwtPayload {
+    pub fn new(sub: String) -> Self {
+        // expires by default in 60 minutes from now
+        let exp = SystemTime::now()
+            .checked_add(Duration::from_secs(60 * 60))
+            .expect("valid timestamp")
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("valid duration")
+            .as_secs() as usize;
+
+        JwtPayload { sub, exp }
     }
 
-    Err(Box::from("Authorization failed"))
+    pub fn verify(token: &str) -> BoxResult<String> {
+        if env::var(AUTH_REQUIRED_VAR) == "true" {
+            return Ok("no_auth".to_string());
+        }
+
+        let decoding_key = DecodingKey::from_secret(SECRET_SIGNING_KEY.as_bytes());
+
+        let Ok(jwt) =
+            jsonwebtoken::decode::<JwtPayload>(token, &decoding_key, &Validation::default())
+        else {
+            return Err("Unauthorized access".into());
+        };
+
+        Ok(jwt.claims.sub)
+    }
 }
 
 //#[debug_handler]
-pub async fn get_users(monitor_state: Extension<Arc<Monitor>>) -> String {
+pub async fn get_users(
+    monitor_state: Extension<Arc<Monitor>>,
+    auth: TypedHeader<Authorization<Bearer>>
+) -> Result<String, StatusCode> {
+    if let Err(_) = JwtPayload::verify(auth.token()) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
     let mut users = Vec::new();
 
     for machine in &monitor_state.config.remotes {
        users.push(&machine.usr);
     }
 
-    serde_json::to_string(&users).unwrap()
+    Ok(serde_json::to_string(&users).unwrap())
 }
 
 //#[debug_handler]
@@ -46,8 +83,8 @@ pub async fn get_remote_files(
     monitor_state: Extension<Arc<Monitor>>,
     auth: TypedHeader<Authorization<Bearer>>
 ) -> Result<String, StatusCode> {
-    if let Err(_) = verify_auth(auth.token()) {
-        return Err(StatusCode::METHOD_NOT_ALLOWED);
+    if let Err(_) = JwtPayload::verify(auth.token()) {
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
     let mut files = HashMap::new();
@@ -71,8 +108,8 @@ pub async fn get_remote_file_by_user(
     auth: TypedHeader<Authorization<Bearer>>,
     Path(user_name): Path<String>
 ) -> Result<String, StatusCode> {
-    if let Err(_) = verify_auth(auth.token()) {
-        return Err(StatusCode::METHOD_NOT_ALLOWED);
+    if let Err(_) = JwtPayload::verify(auth.token()) {
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
     if let Some(machine) = &monitor_state.get_machine_by_name(&user_name) {
@@ -97,8 +134,8 @@ pub async fn post_file(
     auth: TypedHeader<Authorization<Bearer>>,
     Json(query): Json<PostFile>
 ) -> StatusCode {
-    if let Err(_) = verify_auth(auth.token()) {
-        return StatusCode::METHOD_NOT_ALLOWED;
+    if let Err(_) = JwtPayload::verify(auth.token()) {
+        return StatusCode::UNAUTHORIZED;
     }
 
     if let Some(machine) = &monitor_state.get_machine_by_name(&query.user) {
@@ -127,15 +164,21 @@ pub struct ResponseUser {
 pub async fn login(
     Json(user): Json<RequestUser>
 ) -> Result<Json<ResponseUser>, StatusCode> {
-    if user.username == "admin" && user.password == "default" {
-        let resp = ResponseUser {
-            username: user.username,
-            id: 1,
-            token: TEST_TOKEN.to_string()
-        };
-
-        return Ok(Json(resp));
+    if user.username != "admin" || user.password != "default" {
+        return Err(StatusCode::UNAUTHORIZED)
     }
 
-    Err(StatusCode::NOT_FOUND)
+   let Ok(jwt) = jsonwebtoken::encode(
+        &jsonwebtoken::Header::default(),
+        &JwtPayload::new(user.username.clone()),
+        &jsonwebtoken::EncodingKey::from_secret(SECRET_SIGNING_KEY.as_bytes()),
+    ) else {
+        return  Err(StatusCode::INTERNAL_SERVER_ERROR);
+    };
+
+    Ok(Json(ResponseUser {
+        username: user.username,
+        id: 1,
+        token: jwt
+    }))
 }
