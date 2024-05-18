@@ -27,9 +27,6 @@ Config file JSON schematic:
           "addr": {
             "type": "string"
           },
-          "auth": {
-            "type": "string"
-          },
           "method": {
             "type": "string"
           },
