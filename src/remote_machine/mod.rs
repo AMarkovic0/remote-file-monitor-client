@@ -15,7 +15,6 @@ enum ConnectionMethod {
 pub struct RemoteMachine {
     pub usr: String,
     addr: String,
-    auth: Option<String>,
     method: ConnectionMethod,
     file_path: String,
     #[serde(skip)]
