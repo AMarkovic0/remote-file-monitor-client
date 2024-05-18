@@ -15,20 +15,28 @@ use axum::{
     Extension,
 };
 use tower_http::cors::CorsLayer;
+use dotenv::dotenv;
 
 use crate::monitor::Monitor;
 
-const ADDR_PORT: &str = "0.0.0.0:5000";
-const CONF_PATH_ARG: usize = 1;
-const ORIGIN_ARG: usize = 2;
+const HOST: &'static str = "HOST";
+const PORT: &'static str = "PORT";
+const CONF_PATH: &'static str = "CONF_PATH";
+const ORIGIN: &'static str = "ORIGIN";
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     tracing_subscriber::fmt::init();
-    let args: Vec<String> = env::args().collect();
 
-    let mut monitor = Monitor::new(args.get(CONF_PATH_ARG)
-        .expect("Missing argument - Configuration path file not fount"));
+    let conf_path = env::var(CONF_PATH).expect("CONF_PATH is not set in .env file");
+    let origin = env::var(ORIGIN).expect("ORIGIN is not set in .env file");
+    let host = env::var(HOST).expect("HOST is not set in .env file");
+    let port = env::var(PORT).expect("PORT is not set in .env file");
+    let server_url = format!("{host}:{port}");
+
+
+    let mut monitor = Monitor::new(&conf_path);
     monitor.setup().await;
     let monitor_state = Arc::new(monitor);
 
@@ -41,7 +49,7 @@ async fn main() {
         .layer(
             CorsLayer::new()
                 .allow_origin(
-                    format!("http://{}:3000", args.get(ORIGIN_ARG).expect("Missing argument - Origin"))
+                    format!("http://{origin}:{port}")
                     .parse::<HeaderValue>()
                     .unwrap()
                 )
@@ -49,6 +57,6 @@ async fn main() {
         )
         .layer(Extension(monitor_state));
 
-    let listener = tokio::net::TcpListener::bind(ADDR_PORT).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

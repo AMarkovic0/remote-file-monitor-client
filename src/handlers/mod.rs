@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use std::env;
 
 use serde::{Deserialize, Serialize};
 use axum::{
@@ -44,7 +45,7 @@ impl JwtPayload {
     }
 
     pub fn verify(token: &str) -> BoxResult<String> {
-        if env::var(AUTH_REQUIRED_VAR) == "true" {
+        if env::var(AUTH_REQUIRED_VAR).expect("AUTH_REQUIRED is not set in .env file") == "true" {
             return Ok("no_auth".to_string());
         }
 
