@@ -38,6 +38,7 @@ impl Monitor {
         let mut data = String::new();
         let tmp_path = self.config.path.clone();
 
+        // We want to kill the program if unable to read config file
         let mut file = File::open(&self.config.path)
             .expect(&format!("Failed to opena a file {}", self.config.path));
         file.read_to_string(&mut data)

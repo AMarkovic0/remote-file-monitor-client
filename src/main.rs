@@ -30,7 +30,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/api/v1/users", get(handlers::get_users))
-        .route("/api/v1/file", get(handlers::get_remotes))
+        .route("/api/v1/file", get(handlers::get_remote_files))
         .route("/api/v1/file", post(handlers::post_file))
         .layer(Extension(monitor_state));
 

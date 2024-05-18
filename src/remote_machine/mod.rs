@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 
 use crate::remote_session::RemoteSession;
+use crate::remote_session::BoxResult;
 
 #[derive(Serialize, Deserialize, Debug)]
 enum ConnectionMethod {
@@ -36,16 +37,24 @@ impl RemoteMachine {
 
     pub async fn read_file_data(&self) -> Option<String> {
         if let Some(session) = &self.session {
-            return Some(session.read_file(&self.file_path).await)
+            if let Ok(data) = session.read_file(&self.file_path).await {
+                return Some(data);
+            } else {
+                println!("Failed to read file {}", self.file_path);
+            }
         }
 
         None
     }
 
-    pub async fn write_file(&self, file_ctx: &str) {
+    pub async fn write_file(&self, file_ctx: &str) -> BoxResult<()> {
         if let Some(session) = &self.session {
-            session.write_file(&self.file_path, file_ctx).await;
+            if let Err(e) = session.write_file(&self.file_path, file_ctx).await {
+                return Err(e);
+            }
         }
+
+        Ok(())
     }
 }
 
