@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use axum::{
     Extension,
     http::StatusCode,
-    extract::{Json, Path},
+    extract::{Json, Path, State},
     //debug_handler,
 };
 use axum_extra::{
@@ -18,6 +18,10 @@ use axum_extra::{
     TypedHeader,
 };
 use jsonwebtoken::{DecodingKey, Validation};
+use sqlx::{
+   SqlitePool,
+   Row,
+};
 
 use crate::monitor::Monitor;
 use crate::remote_session::BoxResult;
@@ -148,7 +152,7 @@ pub async fn post_file(
     StatusCode::INTERNAL_SERVER_ERROR
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RequestUser {
     username: String,
     password: String
@@ -157,19 +161,36 @@ pub struct RequestUser {
 #[derive(Deserialize, Serialize)]
 pub struct ResponseUser {
     username: String,
-    id: u32,
     token: String
 }
 
 //#[debug_handler]
 pub async fn login(
+    State(state_db): State<SqlitePool>,
     Json(user): Json<RequestUser>
 ) -> Result<Json<ResponseUser>, StatusCode> {
-    if user.username != "admin" || user.password != "default" {
-        return Err(StatusCode::UNAUTHORIZED)
+    let recs = sqlx::query(
+        "
+SELECT username, password
+FROM clients WHERE username = ?
+        "
+    )
+    .bind(&user.username)
+    .fetch_all(&state_db)
+    .await.expect("Failed to fetch user from database");
+
+    if let Some(rec) = recs.get(0) {
+        let username: &str = rec.try_get("username").expect("Failed parsing sql row");
+        let password: &str = rec.try_get("password").expect("Failed parsing sql row");
+
+        if user.username != username || user.password != password {
+            return Err(StatusCode::UNAUTHORIZED)
+        }
+    } else {
+        return Err(StatusCode::NOT_FOUND);
     }
 
-   let Ok(jwt) = jsonwebtoken::encode(
+    let Ok(jwt) = jsonwebtoken::encode(
         &jsonwebtoken::Header::default(),
         &JwtPayload::new(user.username.clone()),
         &jsonwebtoken::EncodingKey::from_secret(SECRET_SIGNING_KEY.as_bytes()),
@@ -179,7 +200,6 @@ pub async fn login(
 
     Ok(Json(ResponseUser {
         username: user.username,
-        id: 1,
         token: jwt
     }))
 }

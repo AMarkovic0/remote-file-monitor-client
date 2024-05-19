@@ -42,7 +42,7 @@ async fn main() {
     monitor.setup().await;
     let monitor_state = Arc::new(monitor);
 
-    let pool = SqlitePool::connect(&db_url).await.expect("Failed connecting to database");
+    let db_conn = SqlitePool::connect(&db_url).await.expect("Failed connecting to database");
 
     let app = Router::new()
         .route("/api/v1/data/users", get(handlers::get_users))
@@ -59,7 +59,8 @@ async fn main() {
                 )
                 .allow_methods([Method::GET, Method::POST]),
         )
-        .layer(Extension(monitor_state));
+        .layer(Extension(monitor_state))
+        .with_state(db_conn);
 
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
     axum::serve(listener, app).await.unwrap();
